@@ -1,12 +1,7 @@
-use std::fs::File;
 use std::io::{Result,prelude::*};
+use super::crc::crc32;
 
-fn main() {
-    let _ = write_to_binfile();
-}
-
-
-struct LocalFileHeader {
+pub struct LocalFileHeader {
     local_file_header_signature     :u32,
     version_needed_to_extract       :u16,
     general_purpose_bit_flag        :u16,
@@ -23,7 +18,7 @@ struct LocalFileHeader {
 }
 
 impl LocalFileHeader {
-    fn new(file_name: &[u8],filedata: &[u8]) -> Self {
+    pub fn new(file_name: &[u8],filedata: &[u8]) -> Self {
         Self {
             // 固定長30bytes + file_name.len() + extra_fieled_len() + filedata.len()
             local_file_header_signature     :0x04034b50,
@@ -41,7 +36,7 @@ impl LocalFileHeader {
             extra_field                     :vec![],
         }
     }
-    fn write<W:Write>(&self,writer: &mut W) -> Result<()> {
+    pub fn write<W:Write>(&self,writer: &mut W) -> Result<()> {
         writer.write_all(&self.local_file_header_signature.to_le_bytes())?;
         writer.write_all(&self.version_needed_to_extract.to_le_bytes())?;
         writer.write_all(&self.general_purpose_bit_flag.to_le_bytes())?;
@@ -62,7 +57,7 @@ impl LocalFileHeader {
 }
 
 
-struct CentralDirectoryHeader {
+pub struct CentralDirectoryHeader {
     central_file_header_signature   :u32,
     version_made_by                 :u16,
     version_needed_to_extract       :u16,
@@ -89,7 +84,7 @@ struct CentralDirectoryHeader {
 
 impl CentralDirectoryHeader {
 
-    fn new(file_name: &[u8],filedata: &[u8]) -> Self {
+    pub fn new(file_name: &[u8],filedata: &[u8]) -> Self {
         Self {
             // 固定長46bytes + file_name + extra + comment 
             central_file_header_signature   :0x02014b50,
@@ -116,7 +111,7 @@ impl CentralDirectoryHeader {
             file_comment                    :vec![],
         }
     }
-    fn write<W:Write>(&self,writer: &mut W) -> Result<()> {
+    pub fn write<W:Write>(&self,writer: &mut W) -> Result<()> {
         writer.write_all(&self.central_file_header_signature.to_le_bytes())?;
         writer.write_all(&self.version_made_by.to_le_bytes())?;
         writer.write_all(&self.version_needed_to_extract.to_le_bytes())?;
@@ -147,7 +142,7 @@ impl CentralDirectoryHeader {
 }
 
 
-struct EndOfCentralDirectoryRecord {
+pub struct EndOfCentralDirectoryRecord {
     end_of_central_dir_signature                                :u32,
     number_of_this_disk                                         :u16,
     number_of_the_disk_with_the_start_of_the_central_directory  :u16,
@@ -161,7 +156,7 @@ struct EndOfCentralDirectoryRecord {
 
 impl EndOfCentralDirectoryRecord {
 
-    fn new(central_directory_size:u32,central_directory_offset:u32) -> Self {
+    pub fn new(central_directory_size:u32,central_directory_offset:u32) -> Self {
         Self {
             end_of_central_dir_signature                        :0x06054b50,
             number_of_this_disk                                 :0,
@@ -174,7 +169,7 @@ impl EndOfCentralDirectoryRecord {
             zip_file_comment :vec![],
         }
     }
-    fn write<W:Write>(&self,writer: &mut W) -> Result<()> {
+    pub fn write<W:Write>(&self,writer: &mut W) -> Result<()> {
         writer.write_all(&self.end_of_central_dir_signature.to_le_bytes())?;
         writer.write_all(&self.number_of_this_disk.to_le_bytes())?;
         writer.write_all(&self.number_of_the_disk_with_the_start_of_the_central_directory.to_le_bytes())?;
@@ -190,58 +185,4 @@ impl EndOfCentralDirectoryRecord {
 
         Ok(())
     }
-}
-fn write_to_binfile() -> Result<()>{
-
-    let filedata = "hello zip".as_bytes();
-    let path = "sample.zip";
-    let file_name = b"sample.zip";
-    let mut file = File::create(path)?;
-    let header = LocalFileHeader::new(file_name,filedata);
-
-    let central_header = CentralDirectoryHeader::new(file_name,filedata);
-
-
-    
-
-
-    // local file header 書き込み
-    header.write(&mut file)?;
-    
-    // filedata 書き込み
-    file.write_all(filedata)?;
-    let central_header_offset = file.stream_position()? as u32;
-
-    central_header.write(&mut file)?;
-    let after_central_directory = file.stream_position()? as u32;
-    let central_directory_size = after_central_directory - central_header_offset;
-
-    let end_record = EndOfCentralDirectoryRecord::new(central_directory_size,central_header_offset);
-    end_record.write(&mut file)?;
-
-    Ok(())
-}
-
-
-// https://note.com/dreamy_stilt3370/n/n9b9739ce53c8
-fn crc32(data: &[u8]) -> u32 {
-    let init_crc  = 0xffffffff;
-    let crc32_poly = 0xEDB88320; // 次数のアレ
-    let xor = 0xffffffff;
-
-    let mut crc = init_crc;
-
-
-    for &byte in data {
-        crc ^= byte as u32;
-        for _ in 0..8 {
-            crc = if (crc & 1) != 0 {
-                (crc >> 1) ^ crc32_poly
-            } else {
-                crc >> 1
-            };
-        }
-    }
-
-    crc ^ xor
 }
