@@ -1,5 +1,21 @@
 use std::io::{Result,prelude::*};
-use super::crc::crc32;
+use crate::crc::crc32;
+
+
+/*
+pub struct MetaData {
+    compression_method:u16,
+    crc_32:u32,
+    compressed_size:u32,
+    uncompressed_size:u32,
+    local_header_offset:u32,
+}
+
+impl MetaData {
+    pub fn new(compressed_method:u16,crc_32:u32,compressed_size:u32,uncompressed_size:u32,local_header_offset:u32,) -> Self {
+    }
+}
+    */
 
 pub struct LocalFileHeader {
     local_file_header_signature     :u32,

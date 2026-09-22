@@ -1,8 +1,7 @@
 use std::fs::File;
 use std::io::{Result,prelude::*};
-mod zip;
 
-use zip::header:: {
+use zip::zip::header:: {
     LocalFileHeader,
     CentralDirectoryHeader,
     EndOfCentralDirectoryRecord,
