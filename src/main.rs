@@ -1,31 +1,48 @@
 use std::fs::File;
 use std::io::{Result,prelude::*};
+use std::env;
 
 use zip::zip::header:: {
+    MetaData,
     LocalFileHeader,
     CentralDirectoryHeader,
     EndOfCentralDirectoryRecord,
 };
 fn main() {
-    let _ = write_to_binfile();
+
+    let args: Vec<String> = env::args().collect();
+    let path = &args[1];
+    println!("input file {}",&path);
+
+    let filedata = std::fs::read(path).unwrap();
+    let compressed_filedata = zip::compression::deflate::deflate(&filedata);
+
+    let _ = make_zip(path,&filedata,&compressed_filedata).unwrap();
 }
 
 
-fn write_to_binfile() -> Result<()>{
+fn make_zip(path:&String,filedata:&[u8] , compressed_filedata:&[u8]) -> Result<()>{
 
-    let filedata = "hello zip".as_bytes();
-    let path = "sample.zip";
-    let file_name = b"sample.zip";
-    let mut file = File::create(path)?;
-    let header = LocalFileHeader::new(file_name,filedata);
+    let filename = (*path).as_bytes();
+    let compressed_path = format!("{}.zip",path);
+    let mut file = File::create(compressed_path)?;
 
-    let central_header = CentralDirectoryHeader::new(file_name,filedata);
+    let metadata = MetaData {
+        filename,
+        compression_method :0 as u16, // no compression
+        crc_32:zip::crc::crc32(compressed_filedata),
+        compressed_size :compressed_filedata.len() as u32,
+        uncompressed_size :filedata.len() as u32,
+    };
+    let header = LocalFileHeader::new(&metadata);
+    let local_header_offset= file.stream_position()? as u32;
+    let central_header = CentralDirectoryHeader::new(&metadata,local_header_offset);
 
     // local file header 書き込み
     header.write(&mut file)?;
     
     // filedata 書き込み
-    file.write_all(filedata)?;
+    file.write_all(compressed_filedata)?;
     let central_header_offset = file.stream_position()? as u32;
 
     central_header.write(&mut file)?;

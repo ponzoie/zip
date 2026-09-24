@@ -2,20 +2,25 @@ use std::io::{Result,prelude::*};
 use crate::crc::crc32;
 
 
-/*
-pub struct MetaData {
-    compression_method:u16,
-    crc_32:u32,
-    compressed_size:u32,
-    uncompressed_size:u32,
-    local_header_offset:u32,
+pub struct MetaData <'a>{
+    pub filename:&'a [u8],
+    pub compression_method:u16,
+    pub crc_32:u32,
+    pub compressed_size:u32,
+    pub uncompressed_size:u32,
 }
 
-impl MetaData {
-    pub fn new(compressed_method:u16,crc_32:u32,compressed_size:u32,uncompressed_size:u32,local_header_offset:u32,) -> Self {
+impl<'a>  MetaData <'a> {
+    pub fn new(filename:&'a [u8],compression_method:u16,crc_32:u32,compressed_size:u32,uncompressed_size:u32) -> Self {
+        MetaData{
+            filename:filename,
+            compression_method :compression_method,
+            crc_32 :crc_32,
+            compressed_size:compressed_size,
+            uncompressed_size:uncompressed_size,
+        }
     }
 }
-    */
 
 pub struct LocalFileHeader {
     local_file_header_signature     :u32,
@@ -34,7 +39,7 @@ pub struct LocalFileHeader {
 }
 
 impl LocalFileHeader {
-    pub fn new(file_name: &[u8],filedata: &[u8]) -> Self {
+    pub fn new(metadata: &MetaData) -> Self {
         Self {
             // 固定長30bytes + file_name.len() + extra_fieled_len() + filedata.len()
             local_file_header_signature     :0x04034b50,
@@ -43,12 +48,12 @@ impl LocalFileHeader {
             compression_method              :0,
             last_mod_file_time              :0,
             last_mod_file_date              :0,
-            crc_32                          :crc32(filedata),
-            compressed_size                 :filedata.len() as u32,
-            uncompressed_size               :filedata.len() as u32,
-            file_name_length                :file_name.len() as u16,
+            crc_32                          :metadata.crc_32,
+            compressed_size                 :metadata.compressed_size,
+            uncompressed_size               :metadata.uncompressed_size,
+            file_name_length                :metadata.filename.len() as u16,
             // extra_field_length
-            file_name                       :file_name.to_vec(),
+            file_name                       :metadata.filename.to_vec(),
             extra_field                     :vec![],
         }
     }
@@ -100,7 +105,7 @@ pub struct CentralDirectoryHeader {
 
 impl CentralDirectoryHeader {
 
-    pub fn new(file_name: &[u8],filedata: &[u8]) -> Self {
+    pub fn new(metadata:&MetaData,local_header_offset:u32) -> Self {
         Self {
             // 固定長46bytes + file_name + extra + comment 
             central_file_header_signature   :0x02014b50,
@@ -110,19 +115,19 @@ impl CentralDirectoryHeader {
             compression_method              :0,
             last_mod_file_time              :0,
             last_mod_file_date              :0,
-            crc_32                          :crc32(filedata),
-            compressed_size                 :filedata.len() as u32,
-            uncompressed_size               :filedata.len() as u32,
-            file_name_length                :file_name.len() as u16,
+            crc_32                          :metadata.crc_32,
+            compressed_size                 :metadata.compressed_size,
+            uncompressed_size               :metadata.uncompressed_size,
+            file_name_length                :metadata.filename.len() as u16,
             // extra_field_length              :u16,
             // file_comment_length             :u16,
             disk_number_start               :0,
             internal_file_attributes        :0x0001,
             external_file_attributes        :0,
-            relative_offset_of_local_header :0,
+            relative_offset_of_local_header :local_header_offset,
 
 
-            file_name                       :file_name.to_vec(),
+            file_name                       :metadata.filename.to_vec(),
             extra_field                     :vec![],
             file_comment                    :vec![],
         }
